@@ -1,0 +1,115 @@
+{
+  "snapshotDate": "2026-11-11",
+  "source": "claude-code-bridge sibling project",
+  "files": [
+    {
+      "path": "agent_adaptors/__init__.py",
+      "sha256": "3eeffed7176474900a8772a0843eea2c77352eb84ba26ba9ef3c0cb1a88a9625"
+    },
+    {
+      "path": "agent_adaptors/claude.py",
+      "sha256": "dac04c56ba08c90e6e81596ab80e9e31e0755961f7d188235348471e5b91a751"
+    },
+    {
+      "path": "agent_adaptors/claude_sdk.py",
+      "sha256": "bed5c8aa6c80ae853bdcfc278fc777aee227a6b2fcf65191402b5d80031d3e1c"
+    },
+    {
+      "path": "agent_adaptors/cli.py",
+      "sha256": "82b3241a8370fc22f1c667496df406cab8ef68d6706ea86bc4752c47839d40a2"
+    },
+    {
+      "path": "agent_adaptors/codex_mcp.py",
+      "sha256": "1a735adfe5571b0f44407774792ea703406b96746e80ddf79b3376a80cc9ec78"
+    },
+    {
+      "path": "agent_adaptors/config.py",
+      "sha256": "339e801ec517a6d7ae80d0e9549249d7ccfa0230c5835e4aa1ac011342759c5c"
+    },
+    {
+      "path": "agent_adaptors/contracts.py",
+      "sha256": "3909df026500de805030782046ddff3e5a6f331ceaef3554ec8886bc57f96b03"
+    },
+    {
+      "path": "agent_adaptors/fake.py",
+      "sha256": "fe3d16c9ab1149bac2600fae1f807fef3f54c20ccdb8087a7aaa62a4d4534dbe"
+    },
+    {
+      "path": "agent_adaptors/history.py",
+      "sha256": "21f54e27dc1b4a8931cb94e1ffeccb49e0c092159a1af1f0b93f2a0f52458c61"
+    },
+    {
+      "path": "agent_adaptors/lease.py",
+      "sha256": "96467fe4ee245568e2ef57f8f4e99ee87efc4b8426f47ce1c81426c5b9f2d8a0"
+    },
+    {
+      "path": "agent_adaptors/registry.py",
+      "sha256": "c0cb3c727842cf37d1d5c002ac1ea79d47fbe6a6c106af0aec67c59c4e9d2a35"
+    },
+    {
+      "path": "agent_adaptors/server.py",
+      "sha256": "31a74c699b412851869dd5bc69c6a6c08508ae3b3280103e2bc3746d064f5bda"
+    },
+    {
+      "path": "agent_adaptors/service.py",
+      "sha256": "0fd1c8892ea9d5c617de8537038aeadb0bb848f8b7af1328ae0c7889c6d62c17"
+    },
+    {
+      "path": "agent_adaptors/stream.py",
+      "sha256": "81103678bfc7e9a02432a1b969b116bb32917f179f8a728ad1a02c61fa621199"
+    },
+    {
+      "path": "bridge.py",
+      "sha256": "c331a0d41d062b3bd74f58f1085a2a4559f93d8046bff487b5ea24b6b81cb630"
+    },
+    {
+      "path": "examples_adaptors.json",
+      "sha256": "b746f40651d61f87fac9a3a74da25673714f981e0b98d6248fba30131fd61fcf"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "0677f46116a9a5e1947aa86d1cb7c6ebaeaa704eb3e2db6e6533e4caed952b29"
+    },
+    {
+      "path": "README.md",
+      "sha256": "8014154e2d0c0b5b3f39252e94ab57e4a5e6195ecfe6fdf9003d6eb51c4e4ec9"
+    },
+    {
+      "path": "tests/mcp_stdio_e2e.py",
+      "sha256": "1e3e261ccc6b0d9147fc4bfa17ba3aa645e9335633da8c754347962a9a5fcef5"
+    },
+    {
+      "path": "tests/process_fixture.py",
+      "sha256": "aaca8be5ed4338179198a563ed4c7466c980a29c1097b8927ce74888b76a3b39"
+    },
+    {
+      "path": "tests/real_sdk_harness_e2e.py",
+      "sha256": "f656faea1db309a179186feb715d0e534224f4ae23808902c7370f125ef4b5b8"
+    },
+    {
+      "path": "tests/test_claude_process.py",
+      "sha256": "aa2a3622ae46ce31c4d5778eb71c929b76ca95e0502082f4b75610e4d58ac65d"
+    },
+    {
+      "path": "tests/test_claude_projects.py",
+      "sha256": "843fd1b5c6e7644670342d0bb1a4c748360f82c0ffd6e69612f5168310dd2226"
+    },
+    {
+      "path": "tests/test_claude_sdk.py",
+      "sha256": "1b55751524e093a19a2e6ecc6ffa94bf24a98d7812dd790a44f18fa8c961bc36"
+    },
+    {
+      "path": "tests/test_claude_state.py",
+      "sha256": "9f5a658f5ab4ee35df3fd97f07803a57fca784d7b56dab844befe4a0b0e5fba4"
+    },
+    {
+      "path": "tests/test_codex_mcp.py",
+      "sha256": "2fd248fd515ef6ace4661755b9e13eb1b27198a2cf4cad414ee44d20de327c78"
+    },
+    {
+      "path": "tests/test_contract.py",
+      "sha256": "0b377dc123e6cde61e4217884fedd80406410cf9d93c303d510799289e66fb89"
+    }
+  ],
+  "hashNormalization": "CRLF converted to LF"
+}

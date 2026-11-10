@@ -1,0 +1,24 @@
+{
+  "contractVersion": 1,
+  "adaptors": [
+    {
+      "id": "codex-local",
+      "type": "codex-native",
+      "enabled": true,
+      "cwd": ".."
+    },
+    {
+      "id": "claude-local",
+      "type": "claude-code",
+      "enabled": true,
+      "cwd": "..",
+      "stateDir": "../data/claude-sdk",
+      "envMode": "inherit",
+      "backend": "sdk",
+      "allowExternalSessions": true,
+      "model": "glm-5.3-flash:cloud",
+      "permissionMode": "acceptEdits",
+      "v2StateDir": "../data/claude-sdk-v2"
+    }
+  ]
+}

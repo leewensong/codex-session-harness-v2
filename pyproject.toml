@@ -1,0 +1,17 @@
+[project]
+name = "codex-session-harness-v2"
+version = "0.1.0"
+description = "Lightweight HTML harness backed by a managed Codex session"
+requires-python = ">=3.11"
+dependencies = [
+  "aiohttp>=3.9",
+]
+
+[tool.uv]
+package = false
+
+[project.optional-dependencies]
+unified = ["harness-agent-adaptors[mcp,sdk]"]
+
+[tool.uv.sources]
+harness-agent-adaptors = { path = "vendor/claude-code-bridge", editable = true }

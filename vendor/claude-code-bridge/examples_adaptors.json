@@ -1,0 +1,1 @@
+{"contractVersion":1,"adaptors":[{"id":"claude-local","type":"claude-code","enabled":true,"cwd":".","stateDir":"data/claude-local"},{"id":"codex-local","type":"codex-mcp","enabled":false,"cwd":".","endpoint":"http://127.0.0.1:8765/mcp"}]}

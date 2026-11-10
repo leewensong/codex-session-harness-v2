@@ -1,0 +1,1775 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>流式语音 Demo · 1.1</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0f1115; color: #e6e8eb; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; padding: 12px 16px 16px;
+  }
+  header { width: 100%; max-width: 480px; display: flex; justify-content: space-between; align-items: center; }
+  .header-main { min-width: 0; flex: 1; }
+  h1 { font-size: 18px; margin: 0; }
+  .st { font-size: 12px; padding: 3px 10px; border-radius: 999px; }
+  .st.ok { background: #1b3a2a; color: #4ade80; }
+  .st.bad { background: #3a1b1b; color: #f87171; }
+  .ollama-model-control {
+    display: flex; align-items: center; gap: 6px; margin-top: 6px; max-width: 100%;
+  }
+  .ollama-model-control label { flex: none; color: #9ca3af; font-size: 11px; }
+  #ollamaModelSelect {
+    min-width: 0; width: 178px; border: 1px solid #374151; border-radius: 7px;
+    background: #161a22; color: #dce3ee; padding: 5px 7px; font: inherit; font-size: 11px;
+  }
+  #ollamaModelSelect:disabled { opacity: .65; cursor: wait; }
+  #refreshOllamaModels {
+    flex: none; border: 1px solid #315da8; border-radius: 7px; padding: 5px 8px;
+    background: #1d3764; color: #dbeafe; cursor: pointer; font-size: 11px;
+  }
+  #refreshOllamaModels:disabled { opacity: .6; cursor: wait; }
+
+  /* tabs */
+  .tabs { width: 100%; max-width: 480px; display: flex; gap: 6px; margin-top: 12px; }
+  .tabs button {
+    flex: 1; border: 1px solid #1f2937; background: #161a22; color: #9ca3af;
+    border-radius: 10px; padding: 8px 0; font-size: 14px; cursor: pointer;
+  }
+  .tabs button.active { background: #1f2937; color: #e6e8eb; border-color: #374151; }
+
+  main { width: 100%; max-width: 480px; margin-top: 12px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  #tab-chat.active { display: flex; }
+
+  /* 首页：Codex 会话验证 */
+  #tab-sessions { display: flex; flex-direction: column; gap: 10px; }
+  .codex-session-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .codex-session-heading h2 { margin: 0; font-size: 16px; }
+  .codex-session-tools { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  #codexProjectFilter {
+    min-width: 118px; max-width: 190px; border: 1px solid #374151; border-radius: 8px;
+    background: #161a22; color: #dce3ee; padding: 7px 8px; font: inherit; font-size: 12px;
+  }
+  .codex-session-heading button, #codexSendBtn {
+    border: 1px solid #315da8; border-radius: 8px; padding: 7px 10px;
+    background: #1d3764; color: #dbeafe; cursor: pointer; font-size: 13px;
+  }
+  .codex-session-heading button:disabled, #codexSendBtn:disabled { opacity: .6; cursor: wait; }
+  #codexSessionStatus { min-height: 18px; margin: 0; color: #9ca3af; font-size: 12px; }
+  #codexSessionGrid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+    max-height: 260px; overflow-y: auto; padding-right: 2px;
+  }
+  .codex-session-card {
+    min-height: 92px; text-align: left; overflow: hidden; border: 1px solid #293241;
+    border-radius: 8px; background: #161a22; color: #dce3ee; padding: 10px; cursor: pointer;
+  }
+  .codex-session-card.selected { border-color: #3b82f6; background: #15233a; }
+  .codex-session-card strong, .codex-session-card span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .codex-session-card strong { font-size: 14px; line-height: 1.35; }
+  .codex-session-card span { margin-top: 7px; color: #9ca3af; font-size: 11px; }
+  .codex-session-card .codex-project { color: #93c5fd; margin-top: 5px; }
+  #codexMessages {
+    min-height: 180px; max-height: 360px; overflow-y: auto; display: flex; flex-direction: column;
+    gap: 8px; border: 1px solid #293241; border-radius: 8px; padding: 10px;
+  }
+  .codex-message { display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.5; }
+  .codex-message b { color: #9ca3af; font-size: 11px; }
+  .codex-message div { white-space: pre-wrap; word-break: break-word; }
+  .codex-message.user div { color: #fbbf24; }
+  .codex-message.assistant div { color: #86efac; }
+  #codexMessages:empty::before { content: "选择会话后显示最近内容"; align-self: center; color: #4b5563; font-size: 13px; }
+  .codex-reply-row { display: flex; gap: 8px; }
+  #codexReplyText { flex: 1; min-width: 0; resize: vertical; min-height: 42px; max-height: 110px; border: 1px solid #374151; border-radius: 8px; background: #161a22; color: #e6e8eb; padding: 9px 10px; font: inherit; }
+
+  /* 主 tab：3D 人物 + 最近对话 + 媒体区 */
+  #tab-chat { flex-direction: column; gap: 12px; }
+  #stage {
+    position: relative; height: 40vh; min-height: 240px; border-radius: 16px;
+    overflow: hidden; background: #0e1116; border: 1px solid #1f2937;
+  }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  .voice-route {
+    min-height: 18px; color: #93c5fd; font-size: 12px; text-align: center;
+  }
+  .voice-route.assistant { color: #c4b5fd; }
+  #stageControls {
+    position: absolute; top: 8px; left: 8px; z-index: 2;
+    display: flex; gap: 6px; flex-wrap: wrap; max-width: 82%;
+  }
+  #stageControls button {
+    font-size: 11px; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+    background: rgba(22,27,36,.85); border: 1px solid #242c3a; color: #e6ecf5;
+  }
+  #stageControls button.active { background: #2e6fe0; border-color: #2e6fe0; color: #fff; }
+  #stageStatus {
+    position: absolute; right: 8px; top: 8px; z-index: 2;
+    font-size: 11px; color: #8b97a8; background: rgba(14,17,22,.6);
+    padding: 3px 8px; border-radius: 999px; pointer-events: none;
+  }
+
+  #recent {
+    min-height: 110px; max-height: 190px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px; padding: 4px 2px;
+  }
+  #recent .msg { display: flex; }
+  #recent .msg.user { justify-content: flex-end; }
+  #recent .msg.ai { justify-content: flex-start; }
+  #recent .bubble {
+    max-width: 82%; padding: 8px 12px; border-radius: 12px;
+    font-size: 15px; line-height: 1.5; word-break: break-word; white-space: pre-wrap;
+  }
+  #recent .user .bubble { background: #1f2937; color: #fbbf24; }
+  #recent .ai .bubble { background: #0f1f1a; color: #86efac; }
+  #recent .ai .bubble.err { background: #1f1414; color: #f87171; }
+  #recent:empty::before {
+    content: "最近对话将显示在这里…"; color: #4b5563; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; height: 100%;
+  }
+
+  #media {
+    min-height: 84px; border: 1px dashed #374151; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #4b5563; font-size: 13px; text-align: center; padding: 8px;
+  }
+
+  /* 记录 tab */
+  ul#log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #log li {
+    display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px;
+    background: #161a22; border-radius: 12px; font-size: 15px; line-height: 1.5;
+  }
+  #log li b { flex: none; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-top: 2px; }
+  #log li b.tag-ai { background: #1b3a2a; color: #4ade80; }
+  #log li b.tag-user { background: #312e1b; color: #fbbf24; }
+  #log li span { flex: 1; word-break: break-all; }
+  #log li button { flex: none; border: none; border-radius: 8px; padding: 4px 10px; background: #1f2937; color: #93c5fd; cursor: pointer; }
+
+  /* 调试 tab */
+  #debug {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11px; line-height: 1.45; color: #9ca3af;
+    background: #11141a; border: 1px solid #1f2937; border-radius: 10px;
+    padding: 8px 10px; max-height: 46vh; overflow: auto; white-space: pre-wrap;
+  }
+
+  /* 控制区 */
+  .controls { width: 100%; max-width: 480px; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+  #micBtn {
+    width: 100%; height: 96px; border: none; border-radius: 20px; font-size: 20px;
+    background: #1f2937; color: #e6e8eb; cursor: pointer; user-select: none; touch-action: none;
+    transition: background .15s;
+  }
+  #micBtn:active, #micBtn.holding { background: #7f1d1d; }
+  #hint { text-align: center; font-size: 13px; color: #9ca3af; min-height: 18px; }
+  .modes { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 14px; }
+  .modes label { display: flex; gap: 6px; align-items: center; }
+  .tts-row { display: flex; gap: 8px; }
+  .tts-row input {
+    flex: 1; border-radius: 8px; border: 1px solid #374151; background: #161a22;
+    color: #e6e8eb; padding: 8px 10px; font-size: 14px;
+  }
+  .tts-row button { border: none; border-radius: 8px; padding: 8px 14px; background: #1f2937; color: #93c5fd; cursor: pointer; }
+  .actions { display: flex; gap: 12px; align-items: center; font-size: 14px; }
+  #stopBtn, #resetBtn { border: none; border-radius: 8px; padding: 6px 12px; background: #1f2937; cursor: pointer; }
+  #stopBtn { color: #f87171; }
+  #resetBtn { color: #93c5fd; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-main">
+    <h1>流式语音 Demo</h1>
+    <div class="ollama-model-control">
+      <label for="ollamaModelSelect">Harness 模型</label>
+      <select id="ollamaModelSelect" aria-label="切换 Harness Ollama 模型" disabled>
+        <option value="">等待模型列表…</option>
+      </select>
+      <button id="refreshOllamaModels" type="button" disabled>刷新</button>
+    </div>
+    <div id="modelName" style="font-size:12px;color:#9ca3af;margin-top:4px">模型：等待连接…</div>
+  </div>
+  <div id="status" class="st bad">未连接</div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="sessions" class="active">首页</button>
+  <button data-tab="chat">对话</button>
+  <button data-tab="history">记录</button>
+  <button data-tab="debug">调试</button>
+</nav>
+
+<main>
+  <section id="tab-chat" class="tab-panel">
+    <div id="stage">
+      <div id="stageControls">
+        <button id="simBtn">模拟口型</button>
+        <button class="emo active" data-emotion="calm">平静</button>
+        <button class="emo" data-emotion="happy">开心</button>
+        <button class="emo" data-emotion="sad">难过</button>
+        <button class="emo" data-emotion="surprised">惊讶</button>
+        <button id="headOnlyBtn" class="active">仅头像</button>
+      </div>
+      <div id="stageStatus">加载 3D 模型…</div>
+    </div>
+    <div id="voiceRouteStatus" class="voice-route">语音目标：Codex 会话</div>
+    <div id="recent"></div>
+    <button id="micBtn" type="button">按住说话</button>
+    <div id="media">媒体区：图片 / 临时媒体将显示在这里</div>
+  </section>
+
+  <section id="tab-sessions" class="tab-panel active">
+    <div class="codex-session-heading">
+      <h2>Codex 会话</h2>
+      <div class="codex-session-tools">
+        <select id="codexProjectFilter" aria-label="按项目筛选会话">
+          <option value="all">全部项目</option>
+        </select>
+        <button id="createCodexSession" type="button" disabled>新建空会话</button>
+        <button id="refreshCodexSessions" type="button">刷新</button>
+      </div>
+    </div>
+    <p id="codexSessionStatus">连接后加载会话列表</p>
+    <div id="codexSessionGrid" aria-label="Codex 会话列表"></div>
+    <div id="codexMessages" aria-live="polite"></div>
+    <div class="codex-reply-row">
+      <textarea id="codexReplyText" rows="2" placeholder="向选中的会话追加消息"></textarea>
+      <button id="codexSendBtn" type="button" disabled>发送</button>
+    </div>
+  </section>
+
+  <section id="tab-history" class="tab-panel">
+    <ul id="log"></ul>
+  </section>
+
+  <section id="tab-debug" class="tab-panel">
+    <pre id="debug">debug: 等待事件…</pre>
+  </section>
+</main>
+
+<div id="voiceControls" class="controls" hidden>
+  <div id="hint">AI 对话中：按住说话提问，回复自动朗读；说话即可打断</div>
+  <div class="modes">
+    <label><input type="checkbox" id="autoSpeak"> 识别后自动朗读</label>
+    <label><input type="checkbox" id="echoMode"> 实时跟读</label>
+  </div>
+  <div class="tts-row">
+    <input id="ttsText" type="text" placeholder="或输入文本，测试流式合成" autocomplete="off">
+    <button id="ttsBtn" type="button">朗读</button>
+  </div>
+  <div class="actions">
+    <button id="resetBtn" type="button">清空对话</button>
+    <button id="stopBtn" type="button">停止朗读</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./three.module.js" } }
+</script>
+<script type="module">
+"use strict";
+import * as THREE from "three";
+import { GLTFLoader } from "./GLTFLoader.js";
+
+const $ = (id) => document.getElementById(id);
+
+/* ============ 口型分类器（analyser 由 index.html 注入） ============ */
+let analyser = null;
+const bandIdx = { L0: 2, L1: 8, M1: 30, H1: 116 }; // 按 44100Hz/fft1024 估算，setAnalyser 时重算
+const freqData = new Uint8Array(512);
+const timeData = new Float32Array(1024);
+const smoothState = {};
+let _hiPrev = 0;     // 高频能量上帧值，用于检测爆破音突发
+let _lastHasEn = false;  // 上一帧是否有声，用于语音起头时不误判爆破
+const w = { voice: 0, jawOpen: 0, mouthSmile: 0, mouthPucker: 0, mouthStretch: 0, close: 0, label: "rest" };
+
+function smooth(key, target, atk, rel) {
+  const cur = smoothState[key] ?? target;
+  const next = cur + (target - cur) * (target > cur ? atk : rel);
+  smoothState[key] = next;
+  return next;
+}
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function meanBand(d, from, to) { let s = 0; for (let i = from; i < to; i++) s += d[i]; return s / Math.max(1, to - from); }
+
+function setAnalyser(a) {
+  analyser = a;
+  const binHz = a.context.sampleRate / a.fftSize;
+  const f = (hz) => Math.max(1, Math.floor(hz / binHz));
+  bandIdx.L0 = f(80);  bandIdx.L1 = f(340);
+  bandIdx.M1 = f(1300); bandIdx.H1 = Math.min(a.frequencyBinCount - 1, f(5200));
+}
+
+/* 模拟口型模式（不依赖音频，便于演示/自检） */
+let simMode = false;
+let simStart = 0;
+const SIM_SEQ = [
+  { j: 0.85, s: 0.10, p: 0.0, st: 0.20, close: 0.0, l: "a" },
+  { j: 0.45, s: 0.50, p: 0.0, st: 0.50, close: 0.0, l: "i / ee" },
+  { j: 0.50, s: 0.0, p: 0.85, st: 0.20, close: 0.0, l: "u / o" },
+  { j: 0.20, s: 0.0, p: 0.10, st: 0.50, close: 0.6, l: "s / f" },
+  { j: 0.15, s: 0.0, p: 0.0, st: 0.0, close: 1.0, l: "b / p / m" },
+  { j: 0.0, s: 0.0, p: 0.0, st: 0.0, close: 0.0, l: "rest" },
+];
+function simulateVisemes(now) {
+  const t = (now - simStart) / 1000;
+  const v = SIM_SEQ[Math.floor(t / 1.4) % SIM_SEQ.length];
+  const env = Math.sin(((t % 1.4) / 1.4) * Math.PI);
+  w.jawOpen = v.j * env;
+  w.mouthSmile = v.s * env;
+  w.mouthPucker = v.p * env;
+  w.mouthStretch = v.st * env;
+  w.close = v.close;
+  w.voice = env * 0.8;
+  w.label = v.l;
+}
+
+function computeVisemes(now) {
+  if (simMode) { simulateVisemes(now); return w; }
+  if (!analyser) return w;
+  analyser.getByteFrequencyData(freqData);
+  analyser.getFloatTimeDomainData(timeData);
+
+  let sum = 0, zc = 0;
+  let prevSign = timeData[0] >= 0;
+  for (let i = 0; i < timeData.length; i++) {
+    const s = timeData[i];
+    sum += s * s;
+    const sign = s >= 0;
+    if (sign !== prevSign) zc++;
+    prevSign = sign;
+  }
+  const rms = Math.sqrt(sum / timeData.length);
+  const zcr = zc / timeData.length;  // 过零率：浊音低，清辅音(摩擦/爆破)高
+
+  const low = meanBand(freqData, bandIdx.L0, bandIdx.L1);
+  const mid = meanBand(freqData, bandIdx.L1, bandIdx.M1);
+  const hi  = meanBand(freqData, bandIdx.M1, bandIdx.H1);
+  const tot = low + mid + hi + 1e-6;
+
+  let num = 0, den = 0;
+  for (let i = 1; i < freqData.length; i++) { num += freqData[i] * i; den += freqData[i]; }
+  const cent = den > 0 ? (num / den) * (analyser.context.sampleRate / 2) / freqData.length : 0;
+
+  const voice = smooth("voice", clamp(rms * 6, 0, 1), 0.55, 0.12);
+  const openness = (mid + hi) / tot;                 // 元音为主
+  const brightness = clamp(cent / 3200, 0, 1);       // i/ee 亮，o/u 暗
+  const dark = 1 - brightness;
+
+  // 辅音闭嘴检测：清音摩擦(f/s/sh) 靠高过零率；爆破音(b/p/t/k) 靠高频能量突发；鼻音(m/n) 低能量且暗
+  const hasEn = rms > 0.03;
+  const fric = hasEn ? clamp((zcr - 0.20) * 5, 0, 1) : 0;
+  // 语音起头首帧 hi 从静音跳变，把基线重置为当前 hi，避免误判成爆破音
+  if (hasEn && !_lastHasEn) _hiPrev = hi;
+  const burst = hasEn ? clamp((hi - _hiPrev) * 0.06, 0, 1) : 0;
+  if (hasEn) _hiPrev = _hiPrev * 0.5 + hi * 0.5;
+  _lastHasEn = hasEn;
+  const nasal = hasEn ? clamp((0.32 - brightness) * 3, 0, 1) * clamp(0.5 - voice * 0.7, 0, 1) : 0;
+  const closeTarget = Math.max(fric, burst * 0.8, nasal * 0.8);
+
+  let jaw = 0, smile = 0, pucker = 0, stretch = 0;
+  if (voice > 0.02) {
+    jaw     = clamp(0.18 + 0.40 * voice + 0.30 * openness - 0.15 * dark, 0, 1);
+    pucker  = clamp(dark * 1.1 - 0.22, 0, 1) * (0.5 + 0.5 * voice);
+    stretch = clamp(0.15 + 0.45 * brightness + 0.20 * voice, 0, 0.85);
+    smile   = clamp((brightness - 0.30) * 0.65, 0, 0.4);
+  }
+  w.jawOpen     = smooth("jaw", jaw, 0.6, 0.2);
+  w.mouthSmile  = smooth("smile", smile, 0.6, 0.22);
+  w.mouthPucker = smooth("pucker", pucker, 0.55, 0.28);
+  w.mouthStretch = smooth("stretch", stretch, 0.6, 0.2);
+  w.close       = smooth("close", closeTarget, 0.6, 0.3);
+  w.voice = voice;
+  w.label = voice < 0.02 ? "rest"
+    : closeTarget > 0.5 ? "b / p / f"
+    : pucker > 0.45 ? "u / o"
+    : brightness > 0.55 ? "i / ee"
+    : jaw > 0.55 ? "a"
+    : "consonant";
+  return w;
+}
+
+/* ============ 3D：GLB 模型 + ARKit blendshape ============ */
+let renderer, scene, camera;
+let avatarGroup = null;      // 当前模型根节点
+let headPivot = null;        // 头部旋转轴（骨骼 Head，或模型根）
+let currentModel = "brunette";
+let modelLoading = false;
+
+const MODEL_FILES = { brunette: "brunette.glb" };
+
+/* morph target 名：ARKit 用 _L/_R 后缀，ReadyPlayerMe 用 Left/Right，互相兜底 */
+function alternateMorphName(name) {
+  if (name.endsWith("_L")) return name.slice(0, -2) + "Left";
+  if (name.endsWith("_R")) return name.slice(0, -2) + "Right";
+  if (name.endsWith("Left")) return name.slice(0, -4) + "_L";
+  if (name.endsWith("Right")) return name.slice(0, -5) + "_R";
+  return null;
+}
+
+const morphEntries = new Map(); // name -> [{mesh, index}]
+
+function setMorph(name, weight) {
+  const list = morphEntries.get(name);
+  if (list) { for (const e of list) e.mesh.morphTargetInfluences[e.index] = weight; return; }
+  const alt = alternateMorphName(name);
+  if (alt) {
+    const list2 = morphEntries.get(alt);
+    if (list2) for (const e of list2) e.mesh.morphTargetInfluences[e.index] = weight;
+  }
+}
+
+function collectMorphs(root) {
+  morphEntries.clear();
+  root.traverse((obj) => {
+    if (obj.isMesh) {
+      // 蒙皮网格的包围球是绑定姿势，不含骨骼变形，会被错误视锥剔除
+      obj.frustumCulled = false;
+      if (obj.morphTargetDictionary && obj.morphTargetInfluences) {
+        for (const [name, index] of Object.entries(obj.morphTargetDictionary)) {
+          if (!morphEntries.has(name)) morphEntries.set(name, []);
+          morphEntries.get(name).push({ mesh: obj, index });
+        }
+      }
+    }
+  });
+}
+
+function findHeadBone(root) {
+  let found = null;
+  root.traverse((o) => {
+    if (!found && o.isBone && /^(head|neck)$/i.test(o.name)) found = o;
+  });
+  return found;
+}
+
+function disposeModel(group) {
+  group.traverse((o) => {
+    if (o.isMesh) {
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => m && m.dispose());
+    }
+  });
+}
+
+/* 只显示头部：隐藏 ReadyPlayerMe 身体网格（Wolf3D_Body/Outfit 等），相机对准头部 */
+let headOnly = true;
+function applyHeadOnly(group) {
+  if (!headOnly) return;
+  let hasRpmHead = false;
+  group.traverse((o) => { if (o.isMesh && o.name === "Wolf3D_Head") hasRpmHead = true; });
+  if (!hasRpmHead) return; // 非 ReadyPlayerMe 模型（如程序化头像）不动
+  group.traverse((o) => {
+    if (o.isMesh) {
+      o.visible = /^(EyeLeft|EyeRight|Wolf3D_Head|Wolf3D_Teeth|Wolf3D_Hair|Wolf3D_Glasses|Wolf3D_Beard|Wolf3D_Headwear|Wolf3D_Tongue|Wolf3D_Eye)/.test(o.name);
+    }
+  });
+}
+
+/* 只计算可见网格的包围盒（setFromObject 会包含隐藏的身体网格，且蒙皮网格的
+   geometry 包围盒是绑定姿势，需用 position 属性 + 最新世界矩阵） */
+function visibleBox(group) {
+  group.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  const v = new THREE.Vector3();
+  group.traverse((o) => {
+    if (o.isMesh && o.visible) {
+      const pos = o.geometry.getAttribute("position");
+      if (!pos) return;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        box.expandByPoint(v);
+      }
+    }
+  });
+  return box;
+}
+
+/* 按模型自动取景：不缩放组（蒙皮网格缩放会破坏渲染），用骨骼定位 + 绑定姿势尺寸 */
+function fitModel(group) {
+  const box = visibleBox(group); // 绑定姿势包围盒：尺寸正确，但位置含骨骼偏移
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  // 骨骼变形偏移 = Head 骨骼世界位置 - 绑定姿势头部中心
+  let headBone = null;
+  group.traverse((o) => { if (!headBone && o.isBone && o.name === "Head") headBone = o; });
+  const headWorld = headBone ? headBone.getWorldPosition(new THREE.Vector3()) : null;
+  const offset = headWorld ? new THREE.Vector3(headWorld.x - center.x, headWorld.y - center.y, headWorld.z - center.z) : new THREE.Vector3();
+  const renderedCenter = center.clone().add(offset);
+  const targetH = headOnly ? 0.4 : 2.9;
+  const dist = targetH / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.7);
+  camera.position.set(renderedCenter.x, renderedCenter.y, renderedCenter.z + dist);
+  camera.lookAt(renderedCenter);
+  camera.updateProjectionMatrix();
+}
+
+function setStageStatus(text) {
+  const el = $("stageStatus");
+  if (el) el.textContent = text;
+}
+
+function loadModel(name) {
+  if (modelLoading) return;
+  const file = MODEL_FILES[name];
+  if (!file) { buildProcedural(); return; }
+  modelLoading = true;
+  setStageStatus("加载模型 " + file + " …");
+  const loader = new GLTFLoader();
+  loader.load(file, (gltf) => {
+    if (avatarGroup) { scene.remove(avatarGroup); disposeModel(avatarGroup); }
+    avatarGroup = gltf.scene;
+    scene.add(avatarGroup);
+    collectMorphs(avatarGroup);
+    headPivot = findHeadBone(avatarGroup);
+    if (headPivot) headPivot.userData.baseRot = headPivot.rotation.clone();
+    applyHeadOnly(avatarGroup);
+    fitModel(avatarGroup);
+    currentModel = name;
+    modelLoading = false;
+    setStageStatus("模型 " + name);
+  }, undefined, (err) => {
+    console.warn("[avatar] GLB 加载失败，回退程序化头像:", err);
+    modelLoading = false;
+    buildProcedural();
+  });
+}
+
+/* 音频分类器权重 → ARKit blendshape */
+function applyBlendshapes() {
+  const v = w, emo = emotion;
+  const talk = Math.min(1, v.voice * 3);
+  const blinkAmt = Math.max(0, Math.min(1, blink + emo.squint * 0.3));
+  // 口型增益整体压低，避免张嘴/嘟嘴太夸张
+  const jaw = Math.max(v.jawOpen * 0.6, emo.surprise * 0.2);
+  const smile = Math.max(v.mouthSmile * 0.7, emo.smile);
+  const pucker = v.mouthPucker * 0.6;
+  const stretch = v.mouthStretch * 0.6;
+  // 辅音闭嘴(b/p/m/f)：压下颔合拢嘴唇，辅音期间嘴不张开
+  const close = v.close || 0;
+  const jawEff = jaw * (1 - close * 0.95);
+  const press = close * 0.55;
+
+  setMorph("jawOpen", jawEff);
+  setMorph("mouthPress_L", press);
+  setMorph("mouthPress_R", press);
+  setMorph("mouthSmile_L", smile * (1 - close * 0.5));
+  setMorph("mouthSmile_R", smile * (1 - close * 0.5));
+  setMorph("mouthPucker", pucker * (1 - close * 0.3));
+  setMorph("mouthFunnel", pucker * 0.5 * (1 - close * 0.3));
+  setMorph("cheekPuff", pucker * 0.15 * (1 - close));
+  setMorph("mouthStretch_L", stretch * (1 - close * 0.5));
+  setMorph("mouthStretch_R", stretch * (1 - close * 0.5));
+  setMorph("mouthFrown_L", emo.frown);
+  setMorph("mouthFrown_R", emo.frown);
+  setMorph("browInnerUp", emo.brow + emo.surprise * 0.5 + talk * 0.05);
+  setMorph("browOuterUp_L", emo.surprise);
+  setMorph("browOuterUp_R", emo.surprise);
+  setMorph("browDown_L", emo.browDown);
+  setMorph("browDown_R", emo.browDown);
+  setMorph("eyeBlink_L", blinkAmt);
+  setMorph("eyeBlink_R", blinkAmt);
+  setMorph("eyeSquint_L", emo.squint);
+  setMorph("eyeSquint_R", emo.squint);
+  setMorph("eyeWide_L", emo.surprise);
+  setMorph("eyeWide_R", emo.surprise);
+
+  // 视线跟踪：鼠标位置 → 眼珠转向；无鼠标/停止移动 → 平滑回正前方
+  // 注意：本模型 brunette.glb 的 In/Out 与 ARKit 标准相反（实测旋转轴：Out 实际向内、In 实际向外），
+  // 所以看左 = 左眼 In + 右眼 Out，看右 = 左眼 Out + 右眼 In；Up/Down 方向正常
+  const el = w.eyeLeft || 0, er = w.eyeRight || 0, eu = w.eyeUp || 0, ed = w.eyeDown || 0;
+  setMorph("eyeLookIn_L", el);
+  setMorph("eyeLookOut_R", el);
+  setMorph("eyeLookOut_L", er);
+  setMorph("eyeLookIn_R", er);
+  setMorph("eyeLookUp_L", eu);
+  setMorph("eyeLookUp_R", eu);
+  setMorph("eyeLookDown_L", ed);
+  setMorph("eyeLookDown_R", ed);
+}
+
+/* 头部微动：只留极轻微呼吸/说话点头，去掉上下浮动与左右摇摆，视线稳定朝前 */
+function applyHeadMotion(now) {
+  if (!avatarGroup) return;
+  const t = now / 1000;
+  const talkAmt = Math.min(1, w.voice * 3);
+  const pivot = headPivot || avatarGroup;
+  const base = pivot.userData.baseRot || { x: 0, y: 0, z: 0 };
+  pivot.rotation.x = base.x + Math.sin(t * 0.4) * 0.004 + Math.sin(t * 2.2) * 0.006 * talkAmt;
+  pivot.rotation.y = base.y;
+  pivot.rotation.z = base.z + Math.sin(t * 0.5) * 0.002;
+}
+
+/* ============ 视线跟踪：鼠标 → 眼睛朝向 ============ */
+let mouseActive = false;        // 鼠标是否在画布上
+let lastMouseMove = 0;          // 最后一次 mousemove 时间戳
+const mouseNdc = { x: 0, y: 0 }; // 归一化设备坐标 [-1,1]，y 向上
+const EYE_IDLE_MS = 2500;        // 鼠标停止移动多久后眼神回正
+const EYE_DEAD = 0.12;           // 屏幕中心死区，防止微动抖动
+const EYE_GAIN = 0.6;            // 眼珠最大转动幅度（1.0 会转到底很不自然）
+
+function updateEyeTarget(now) {
+  let lookL = 0, lookR = 0, lookU = 0, lookD = 0;
+  if (mouseActive && now - lastMouseMove < EYE_IDLE_MS) {
+    const nx = mouseNdc.x, ny = mouseNdc.y;
+    const range = 1 - EYE_DEAD;
+    if (nx > EYE_DEAD)  lookR = Math.min(1, (nx - EYE_DEAD) / range) * EYE_GAIN;
+    if (nx < -EYE_DEAD) lookL = Math.min(1, (-nx - EYE_DEAD) / range) * EYE_GAIN;
+    if (ny > EYE_DEAD)  lookU = Math.min(1, (ny - EYE_DEAD) / range) * EYE_GAIN;
+    if (ny < -EYE_DEAD) lookD = Math.min(1, (-ny - EYE_DEAD) / range) * EYE_GAIN;
+  }
+  // 慢速过渡：朝向鼠标约 0.07/帧 趋近，回正约 0.05/帧（不突变）
+  w.eyeLeft  = smooth("eyeLeft",  lookL, 0.07, 0.05);
+  w.eyeRight = smooth("eyeRight", lookR, 0.07, 0.05);
+  w.eyeUp    = smooth("eyeUp",    lookU, 0.07, 0.05);
+  w.eyeDown  = smooth("eyeDown",  lookD, 0.07, 0.05);
+}
+
+/* ============ 程序化头像（GLB 加载失败 / 手动切换时的回退） ============ */
+let mouth, innerMouth, upperLip, lowerLip, upperTeeth, lowerTeeth, cornerL, cornerR;
+let browL, browR, lidL, lidR;
+
+function buildProcedural() {
+  if (avatarGroup) { scene.remove(avatarGroup); disposeModel(avatarGroup); }
+  const avatar = new THREE.Group();
+  const skinMat    = new THREE.MeshStandardMaterial({ color: 0xf0b98e, roughness: 0.7 });
+  const skinDark   = new THREE.MeshStandardMaterial({ color: 0xd99a6b, roughness: 0.7 });
+  const hairMat    = new THREE.MeshStandardMaterial({ color: 0x2d2a33, roughness: 0.9 });
+  const whiteMat   = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
+  const irisMat    = new THREE.MeshStandardMaterial({ color: 0x52372a, roughness: 0.25 });
+  const pupilMat   = new THREE.MeshStandardMaterial({ color: 0x0e0e12, roughness: 0.1 });
+  const mouthInner = new THREE.MeshStandardMaterial({ color: 0x4a1f16, roughness: 0.9 });
+  const teethMat   = new THREE.MeshStandardMaterial({ color: 0xf5f2e6, roughness: 0.4 });
+  const clothMat   = new THREE.MeshStandardMaterial({ color: 0x3d6fa3, roughness: 0.8 });
+  const browMat    = hairMat;
+
+  const face = new THREE.Group();
+  avatar.add(face);
+
+  // 头
+  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.95, 48, 40), skinMat);
+  headMesh.scale.set(1, 1.1, 0.92);
+  face.add(headMesh);
+
+  // 耳朵
+  const earL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 20, 16), skinMat); earL.position.set(-0.93, -0.1, 0);
+  const earR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 20, 16), skinMat); earR.position.set(0.93, -0.1, 0);
+  face.add(earL, earR);
+
+  // 鼻子
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 16), skinMat);
+  nose.position.set(0, -0.04, 0.97);
+  face.add(nose);
+
+  // 头发（半球帽 + 刘海）
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.97, 32, 14, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat);
+  hair.position.y = 0.3;
+  face.add(hair);
+  const fringe = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.13, 0.1), hairMat);
+  fringe.position.set(0, 0.34, 0.85);
+  fringe.rotation.x = -0.22;
+  face.add(fringe);
+
+  // 眼睛（白 + 虹膜 + 瞳孔 + 上眼睑）
+  function makeEye(x) {
+    const g = new THREE.Group(); g.position.set(x, 0.18, 0.88);
+    const wh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 24, 20), whiteMat); wh.scale.set(1, 1.25, 0.55); g.add(wh);
+    const ir = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), irisMat); ir.position.z = 0.10; ir.scale.set(1, 1, 0.5); g.add(ir);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), pupilMat); pu.position.z = 0.135; pu.scale.set(1, 1, 0.5); g.add(pu);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.07), skinMat);
+    lid.position.set(0, 0.21, 0.02);
+    lid.userData.baseY = 0.21;
+    g.add(lid);
+    return { g, lid };
+  }
+  const eyeL = makeEye(-0.33);
+  const eyeR = makeEye(0.33);
+  face.add(eyeL.g, eyeR.g);
+  lidL = eyeL.lid; lidR = eyeR.lid;
+
+  // 眉毛
+  browL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.055, 0.05), browMat);
+  browL.position.set(-0.33, 0.42, 0.93); browL.rotation.z = 0.16;
+  browR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.055, 0.05), browMat);
+  browR.position.set(0.33, 0.42, 0.93); browR.rotation.z = -0.16;
+  face.add(browL, browR);
+
+  // 嘴巴组
+  mouth = new THREE.Group();
+  mouth.position.set(0, -0.5, 0.9);
+  innerMouth = new THREE.Mesh(new THREE.SphereGeometry(0.16, 24, 20), mouthInner);
+  innerMouth.scale.set(1, 0.16, 0.5);
+  innerMouth.position.set(0, 0, -0.03);
+  upperLip = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.075, 0.08), skinMat);
+  upperLip.position.set(0, 0.05, 0.02);
+  lowerLip = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.075, 0.08), skinDark);
+  lowerLip.position.set(0, -0.05, 0.02);
+  upperTeeth = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.02), teethMat);
+  upperTeeth.position.set(0, 0.045, 0.09);
+  lowerTeeth = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.02), teethMat);
+  lowerTeeth.position.set(0, -0.045, 0.09);
+  cornerL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), skinDark);
+  cornerL.position.set(-0.2, 0, 0.06);
+  cornerR = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), skinDark);
+  cornerR.position.set(0.2, 0, 0.06);
+  mouth.add(innerMouth, upperLip, lowerLip, upperTeeth, lowerTeeth, cornerL, cornerR);
+  face.add(mouth);
+
+  // 颈部 + 身体
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.45, 20), skinMat);
+  neck.position.y = -1.25;
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.85, 1.15, 28), clothMat);
+  torso.position.y = -2.0;
+  avatar.add(neck, torso);
+
+  avatarGroup = avatar;
+  headPivot = avatar;
+  scene.add(avatar);
+  camera.fov = 40;
+  camera.position.set(0, 0.15, 4.3);
+  camera.lookAt(0, -0.2, 0);
+  camera.updateProjectionMatrix();
+  currentModel = "procedural";
+  setStageStatus("模型 procedural");
+}
+
+let emotion = { smile: 0, brow: 0, frown: 0, surprise: 0, squint: 0, browDown: 0 };
+
+function applyMouth() {
+  const jaw = w.jawOpen, sm = w.mouthSmile, pk = w.mouthPucker, st = w.mouthStretch;
+  const emo = emotion;
+  const smile = Math.max(sm, emo.smile * 0.6);
+  const frown = emo.frown;
+  const surprise = emo.surprise;
+
+  mouth.scale.x = 1 + st * 0.30 + smile * 0.10;
+  mouth.scale.y = 1 + pk * 0.18;
+  mouth.position.z = 0.9 + pk * 0.05;
+  mouth.position.y = -0.5 - jaw * 0.01;
+
+  innerMouth.scale.y = 0.16 + (jaw + surprise * 0.25) * 1.5;
+  innerMouth.scale.z = 0.5 + (jaw + surprise * 0.25) * 0.55;
+  innerMouth.position.y = (jaw + surprise * 0.25) * 0.01;
+
+  upperLip.position.y = 0.05 + jaw * 0.035 - pk * 0.01;
+  lowerLip.position.y = -0.05 - jaw * 0.09 - pk * 0.01;
+  upperTeeth.position.y = upperLip.position.y - 0.012;
+  lowerTeeth.position.y = lowerLip.position.y + 0.012;
+
+  const cw = 0.20 + st * 0.14 - pk * 0.06 + smile * 0.03;
+  const cy = -pk * 0.04 + smile * 0.10 - frown * 0.09 - surprise * 0.02;
+  cornerL.position.x = -cw; cornerR.position.x = cw;
+  cornerL.position.y = cy; cornerR.position.y = cy;
+
+  upperLip.scale.z = 1 + pk * 0.45;
+  lowerLip.scale.z = 1 + pk * 0.45;
+}
+
+function applyExpression(dt) {
+  const emo = emotion;
+  const talk = Math.min(1, w.voice * 3);
+  // 眉毛：说话微抬 + 情绪
+  const browUp = talk * 0.05 + emo.brow * 0.25 - emo.frown * 0.18 + emo.surprise * 0.3;
+  browL.position.y = 0.42 + browUp;
+  browR.position.y = 0.42 + browUp;
+  browL.rotation.z = 0.16 - emo.frown * 0.30 - emo.surprise * 0.1;
+  browR.rotation.z = -0.16 + emo.frown * 0.30 + emo.surprise * 0.1;
+  // 眨眼（衰减已在主循环 tick 中统一处理）
+  const closed = Math.max(0, Math.min(1, blink + emo.squint * 0.3));
+  lidL.position.y = lidL.userData.baseY - closed * 0.17;
+  lidR.position.y = lidR.userData.baseY - closed * 0.17;
+  // 视线跟踪（程序化模型）：眼珠组整体旋转跟随鼠标（+Z 朝前，绕 Y 向右为正，绕 X 向上为负）
+  const lookX = (w.eyeRight - w.eyeLeft) * 0.35;
+  const lookY = (w.eyeDown - w.eyeUp) * 0.30;
+  eyeL.g.rotation.y = lookX; eyeR.g.rotation.y = lookX;
+  eyeL.g.rotation.x = lookY; eyeR.g.rotation.x = lookY;
+}
+
+/* ============ 主循环 ============ */
+let blink = 0;
+let nextBlink = 2;
+
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.05, (now - (tick.last || now)) / 1000);
+  tick.last = now;
+
+  // 眨眼定时：触发后快速衰减睁开（约 0.14s），否则眼睛会一直闭着
+  if (now / 1000 > nextBlink) { blink = 1; nextBlink = now / 1000 + 2 + Math.random() * 4; }
+  blink = Math.max(0, blink - dt * 7);
+
+  const v = computeVisemes(now);
+  updateEyeTarget(now);
+  if (currentModel === "procedural") {
+    applyMouth();
+    applyExpression(dt);
+  } else {
+    applyBlendshapes();
+  }
+  applyHeadMotion(now);
+
+  renderer.render(scene, camera);
+}
+
+function resize() {
+  const stage = $("stage");
+  if (!stage || !renderer) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function init3D() {
+  const stage = $("stage");
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x0e1116, 1);
+  stage.prepend(renderer.domElement);
+
+  // 视线跟踪：画布上移动鼠标 → 眼珠跟随；离开画布 → 回正
+  const cv = renderer.domElement;
+  cv.addEventListener("mousemove", (e) => {
+    const r = cv.getBoundingClientRect();
+    mouseNdc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    mouseNdc.y = -(((e.clientY - r.top) / r.height) * 2 - 1);
+    mouseActive = true;
+    lastMouseMove = performance.now();
+  });
+  cv.addEventListener("mouseleave", () => { mouseActive = false; });
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(40, 1, 0.1, 20);
+  camera.position.set(0, 0.15, 4.3);
+  camera.lookAt(0, -0.2, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const key = new THREE.DirectionalLight(0xffffff, 1.35); key.position.set(3, 5, 6); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xaad6ff, 0.55); rim.position.set(-4, 2, -5); scene.add(rim);
+
+  window.addEventListener("resize", resize);
+  resize();
+  requestAnimationFrame(tick);
+  loadModel("brunette");
+}
+
+/* ============ 事件 ============ */
+$("simBtn").addEventListener("click", () => {
+  simMode = !simMode;
+  $("simBtn").classList.toggle("active", simMode);
+  simStart = performance.now();
+});
+document.querySelectorAll("button.emo").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("button.emo").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    const map = {
+      calm: { smile: 0, brow: 0, frown: 0, surprise: 0, squint: 0, browDown: 0 },
+      happy: { smile: 0.5, brow: 0.3, frown: 0, surprise: 0, squint: 0.8, browDown: 0 },
+      sad: { smile: 0, brow: 0.15, frown: 0.6, surprise: 0, squint: 0, browDown: 0.3 },
+      surprised: { smile: 0, brow: 0.6, frown: 0, surprise: 1, squint: 0, browDown: 0 },
+    };
+    emotion = map[b.dataset.emotion] || emotion;
+  });
+});
+$("headOnlyBtn").addEventListener("click", () => {
+  headOnly = !headOnly;
+  $("headOnlyBtn").classList.toggle("active", headOnly);
+  if (avatarGroup) { applyHeadOnly(avatarGroup); fitModel(avatarGroup); }
+});
+
+init3D();
+
+/* 调试钩子：控制台可查模型/口型状态 */
+window.__avatar = {
+  get state() {
+    return {
+      currentModel, morphCount: morphEntries.size,
+      headPivot: headPivot && headPivot.name,
+      camPos: camera.position.toArray().map((v) => +v.toFixed(2)),
+    };
+  },
+  morphs: (name) => {
+    const list = morphEntries.get(name) || [];
+    return list.map((e) => e.mesh.morphTargetInfluences[e.index]);
+  },
+  drive: (vis) => { Object.assign(w, vis); applyBlendshapes(); },
+  sim: (on) => { simMode = on; simStart = performance.now(); },
+  setAnalyser,
+  resize,
+  frame: (now) => {
+    const v = computeVisemes(now);
+    updateEyeTarget(now);
+    if (currentModel === "procedural") { applyMouth(); applyExpression(0.016); }
+    else applyBlendshapes();
+    applyHeadMotion(now);
+    renderer.render(scene, camera);
+    return v;
+  },
+  setMorph, applyBlendshapes, renderer, scene, camera, avatarGroup, w, emotion,
+};
+</script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+let ws = null, wsOpen = false, reconnectTimer = null;
+let audioCtx = null, analyser = null, micStream = null, processor = null;
+let sending = false, speaking = false, echoMode = $("echoMode").checked, voiceRoute = "codex", replying = false;
+let activeSources = [], nextPlayTime = 0;
+let ollamaModels = [], ollamaCurrentModel = "", ollamaModelChanging = false;
+
+const ECHO_HINT = "实时跟读中：请戴耳机，避免扬声器回声啸叫";
+const LLM_HINT = "AI 对话中：按住说话提问，回复自动朗读；说话即可打断";
+const NORMAL_HINT = "按住说话，松手结束；识别后自动流式朗读";
+
+function isAssistantVoice() { return voiceRoute === "assistant"; }
+function hintDefault() { return isAssistantVoice() ? LLM_HINT : (echoMode ? ECHO_HINT : NORMAL_HINT); }
+
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => {
+    wsOpen = true;
+    setStatus("已连接", "ok");
+    requestOllamaModels();
+    sendJson({ type: "echo", on: echoMode });
+    sendJson({ type: "llm", on: isAssistantVoice() });
+    syncModeUi();
+    requestCodexSessions();
+    debugLine("ws 已连接");
+  };
+  ws.onclose = () => {
+    wsOpen = false;
+    ollamaModelChanging = false;
+    codexCreating = false;
+    codexSending = false;
+    updateOllamaControlState();
+    updateCodexSendState();
+    clearTimeout(codexListTimer);
+    setCodexStatus("本地服务已断开，等待重连…");
+    setStatus("已断开，重连中…", "bad");
+    debugLine("ws 已断开，1.5s 后重连");
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, 1500);
+  };
+  ws.onerror = () => {
+    ollamaModelChanging = false;
+    updateOllamaControlState();
+    clearTimeout(codexListTimer);
+    setCodexStatus("无法连接本地服务");
+    setStatus("连接错误", "bad");
+    debugLine("ws 错误");
+  };
+  ws.onmessage = onMessage;
+}
+function setStatus(t, cls) { const el = $("status"); el.textContent = t; el.className = "st " + cls; }
+function sendJson(obj) { if (wsOpen) ws.send(JSON.stringify(obj)); }
+function syncModeUi() {
+  $("ttsBtn").textContent = isAssistantVoice() ? "提问" : "朗读";
+  $("ttsText").placeholder = isAssistantVoice() ? "或输入文字，直接向 AI 提问" : "或输入文本，测试流式合成";
+  $("hint").textContent = hintDefault();
+}
+function debugLine(text) {
+  const el = $("debug");
+  if (!el) return;
+  const t = new Date().toLocaleTimeString();
+  if (el.textContent === "debug: 等待事件…") el.textContent = "";
+  el.textContent += `[${t}] ${text}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function formatModelSize(size) {
+  const bytes = Number(size);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value >= 10 || index === 0 ? Math.round(value) : value.toFixed(1)} ${units[index]}`;
+}
+
+function modelOptionLabel(model) {
+  const meta = [model.parameterSize, model.quantization, formatModelSize(model.size)]
+    .map((item) => String(item || "").trim()).filter(Boolean);
+  return meta.length ? `${model.name} · ${meta.join(" · ")}` : model.name;
+}
+
+function updateOllamaControlState() {
+  const select = $("ollamaModelSelect");
+  const refresh = $("refreshOllamaModels");
+  if (!select || !refresh) return;
+  select.disabled = !wsOpen || ollamaModelChanging || !ollamaModels.length;
+  refresh.disabled = !wsOpen || ollamaModelChanging;
+}
+
+function renderOllamaModels(models, current) {
+  ollamaModels = Array.isArray(models)
+    ? models.filter((item) => item && typeof item.name === "string" && item.name.trim())
+    : [];
+  if (current) ollamaCurrentModel = String(current);
+  const select = $("ollamaModelSelect");
+  if (!select) return;
+  select.innerHTML = "";
+  if (!ollamaModels.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "未发现已安装模型";
+    select.append(option);
+  } else {
+    ollamaModels.forEach((model) => {
+      const option = document.createElement("option");
+      option.value = model.name;
+      option.textContent = modelOptionLabel(model);
+      select.append(option);
+    });
+    if (ollamaModels.some((model) => model.name === ollamaCurrentModel)) {
+      select.value = ollamaCurrentModel;
+    } else {
+      select.selectedIndex = 0;
+    }
+  }
+  updateOllamaControlState();
+}
+
+function requestOllamaModels() {
+  if (!wsOpen) return;
+  ollamaModelChanging = true;
+  updateOllamaControlState();
+  $("modelName").textContent = "模型：正在读取 Ollama 列表…";
+  sendJson({ type: "ollama.models.list" });
+}
+
+/* ---------- 首页：Codex 会话验证 ---------- */
+let codexSessions = [];
+let selectedCodexSessionId = localStorage.getItem("codex.defaultSessionId") || "";
+let codexSending = false;
+let codexCreating = false;
+let newlyCreatedCodexSession = null;
+let codexListTimer = null;
+let codexProjectFilter = "all";
+let codexReadRequestedId = "";
+let selectedCodexMessages = [];
+let selectedCodexSessionMeta = null;
+let codexSpeakReplyPending = false;
+let lastCodexSessionContext = null;
+let codexStreamingReply = "";
+const CODEX_SPEECH_MIN_INTERVAL_MS = 5000;
+let codexSpeechQueue = [];
+let codexSpeechInFlight = false;
+let codexSpeechLastStartedAt = 0;
+let codexSpeechDrainTimer = null;
+
+function setCodexStatus(text) { $("codexSessionStatus").textContent = text; }
+function updateVoiceRouteUi() {
+  const el = $("voiceRouteStatus");
+  if (!el) return;
+  el.className = "voice-route" + (isAssistantVoice() ? " assistant" : "");
+  el.textContent = isAssistantVoice() ? "语音目标：自研 AI" : "语音目标：Codex 会话";
+}
+function sessionUpdatedAt(session) {
+  const value = Number(session?.updatedAt);
+  return Number.isFinite(value) ? value : 0;
+}
+function sortedCodexSessions() {
+  return [...codexSessions].sort((a, b) => {
+    const timeDiff = sessionUpdatedAt(b) - sessionUpdatedAt(a);
+    if (timeDiff) return timeDiff;
+    const nameDiff = String(a.name || a.id || "").localeCompare(String(b.name || b.id || ""), "zh-CN");
+    return nameDiff || String(a.id || "").localeCompare(String(b.id || ""));
+  });
+}
+function projectChoices() {
+  const projects = [...new Set(sortedCodexSessions().map(projectName))]
+    .sort((a, b) => a.localeCompare(b, "zh-CN"));
+  return [{ index: 0, project: "全部项目" }, ...projects.map((project, index) => ({ index: index + 1, project }))];
+}
+function visibleCodexSessions() {
+  return sortedCodexSessions().filter((session) => (
+    codexProjectFilter === "all" || projectName(session) === codexProjectFilter
+  ));
+}
+function sendCodexContext() {
+  const session = codexSessions.find((item) => item.id === selectedCodexSessionId) || selectedCodexSessionMeta;
+  const last = lastCodexSessionContext;
+  sendJson({
+    type: "llm.context",
+    context: {
+      threadId: selectedCodexSessionId || "",
+      name: session?.name || "",
+      cwd: session?.cwd || "",
+      project: session ? projectName(session) : "",
+      messages: selectedCodexMessages.slice(-6),
+      lastSelected: last ? {
+        threadId: last.threadId,
+        name: last.name,
+        project: last.project,
+        messages: (last.messages || []).slice(-6),
+      } : null,
+      visibleSessions: visibleCodexSessions().map((item, index) => ({
+        index: index + 1,
+        threadId: item.id,
+        name: item.name || item.id,
+        project: projectName(item),
+        updatedAt: item.updatedAt,
+      })),
+      projectOptions: projectChoices(),
+    },
+  });
+}
+function setVoiceRoute(route) {
+  const nextAssistant = route === "assistant";
+  const changed = nextAssistant !== isAssistantVoice();
+  if (changed && !nextAssistant) {
+    stopSpeaking();
+    replying = false;
+  }
+  if (nextAssistant && echoMode) {
+    echoMode = false;
+    $("echoMode").checked = false;
+    sendJson({ type: "echo", on: false });
+  }
+  voiceRoute = nextAssistant ? "assistant" : "codex";
+  sendJson({ type: "llm", on: nextAssistant });
+  if (nextAssistant) sendCodexContext();
+  updateVoiceRouteUi();
+  syncModeUi();
+}
+function appendCodexDraft(text) {
+  const input = $("codexReplyText");
+  const value = input.value.trim();
+  input.value = value ? `${value}\n${text}` : text;
+  setCodexStatus("语音已填入当前会话追加框");
+}
+function speakCodexReply(text) {
+  const reply = String(text || "").trim();
+  if (!reply) return;
+  codexSpeakReplyPending = false;
+  stopSpeaking();
+  sendJson({ type: "speak", text: reply.slice(0, 16000) });
+}
+function requestCodexReplySummary(text) {
+  const reply = String(text || "").trim();
+  if (!wsOpen || !selectedCodexSessionId || !reply) return;
+  codexSpeakReplyPending = false;
+  setCodexStatus("正在让本地 AI 整理 Codex 回复…");
+  sendJson({
+    type: "codex.reply.summarize",
+    thread_id: selectedCodexSessionId,
+    text: reply.slice(0, 16000),
+  });
+}
+function updateCodexSendState() {
+  $("codexSendBtn").disabled = !selectedCodexSessionId || codexSending;
+  $("refreshCodexSessions").disabled = codexSending || codexCreating;
+  const target = currentCodexProjectTarget();
+  const create = $("createCodexSession");
+  create.disabled = !wsOpen || codexSending || codexCreating || !target.ok;
+  create.title = target.ok ? `在 ${target.cwd} 新建空会话` : target.message;
+}
+function projectName(session) {
+  if (session.project) return session.project;
+  const cwd = String(session.cwd || "").replace(/[\\/]+$/, "");
+  const parts = cwd.split(/[\\/]/);
+  return parts[parts.length - 1] || "未指定项目";
+}
+function currentCodexProjectTarget() {
+  if (codexProjectFilter === "all") {
+    return { ok: false, message: "请先选择一个项目" };
+  }
+  const byPath = new Map();
+  codexSessions.forEach((session) => {
+    if (projectName(session) !== codexProjectFilter) return;
+    const cwd = String(session.cwd || "").trim().replace(/[\\/]+$/, "");
+    const key = cwd.replace(/\//g, "\\").toLocaleLowerCase();
+    if (cwd) byPath.set(key, cwd);
+  });
+  const paths = [...byPath.values()];
+  if (!paths.length) return { ok: false, message: "该项目没有可用目录" };
+  if (paths.length > 1) return { ok: false, message: "同名项目对应多个目录，暂时无法确定目标" };
+  return { ok: true, project: codexProjectFilter, cwd: paths[0] };
+}
+function createEmptyCodexSession() {
+  const target = currentCodexProjectTarget();
+  if (!target.ok) {
+    setCodexStatus(target.message);
+    updateCodexSendState();
+    return;
+  }
+  codexCreating = true;
+  updateCodexSendState();
+  setCodexStatus(`正在 ${target.project} 新建空会话…`);
+  sendJson({
+    type: "codex.session.create",
+    project: target.project,
+    cwd: target.cwd,
+  });
+}
+function updateCodexProjectFilter() {
+  const select = $("codexProjectFilter");
+  const projects = projectChoices().slice(1).map((item) => item.project);
+  if (codexProjectFilter !== "all" && !projects.includes(codexProjectFilter)) codexProjectFilter = "all";
+  select.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "all";
+  all.textContent = "全部项目";
+  select.append(all);
+  projects.forEach((project) => {
+    const option = document.createElement("option");
+    option.value = project;
+    option.textContent = project;
+    select.append(option);
+  });
+  select.value = codexProjectFilter;
+}
+function renderCodexSessions() {
+  const grid = $("codexSessionGrid");
+  grid.innerHTML = "";
+  updateCodexProjectFilter();
+  visibleCodexSessions().forEach((session, index) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "codex-session-card" + (session.id === selectedCodexSessionId ? " selected" : "");
+    card.title = `${session.name || session.id} · ${session.cwd || ""}`;
+    const name = document.createElement("strong");
+    name.textContent = session.name || "未命名会话";
+    const project = document.createElement("span");
+    project.className = "codex-project";
+    project.textContent = "项目：" + projectName(session);
+    const meta = document.createElement("span");
+    meta.textContent = `第 ${index + 1} 个 · ${session.status || "unknown"}`;
+    card.append(name, project, meta);
+    card.addEventListener("click", () => selectCodexSession(session.id));
+    grid.append(card);
+  });
+}
+function renderCodexMessages(messages) {
+  const box = $("codexMessages");
+  box.innerHTML = "";
+  codexStreamingReply = "";
+  (messages || []).forEach((message) => {
+    const item = document.createElement("article");
+    item.className = "codex-message " + (message.role === "assistant" ? "assistant" : "user");
+    const role = document.createElement("b");
+    role.textContent = message.role === "assistant" ? "Codex" : "你";
+    const text = document.createElement("div");
+    text.textContent = message.text || "";
+    item.append(role, text);
+    box.append(item);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+function renderCodexStreamingReply(fullText) {
+  codexStreamingReply = String(fullText || codexStreamingReply || "");
+  const box = $("codexMessages");
+  let item = box.querySelector(".codex-message.streaming");
+  if (!item) {
+    item = document.createElement("article");
+    item.className = "codex-message assistant streaming";
+    const role = document.createElement("b");
+    role.textContent = "Codex · 实时";
+    const text = document.createElement("div");
+    item.append(role, text);
+    box.append(item);
+  }
+  item.querySelector("div").textContent = codexStreamingReply;
+  box.scrollTop = box.scrollHeight;
+}
+function requestCodexSessions() {
+  if (!wsOpen) return;
+  clearTimeout(codexListTimer);
+  codexReadRequestedId = "";
+  setCodexStatus("正在读取本地缓存…");
+  sendJson({ type: "codex.sessions.list" });
+  codexListTimer = setTimeout(() => {
+    setCodexStatus("缓存仍可使用，后台刷新超时");
+  }, 45000);
+}
+function requestCodexSession(force = false) {
+  if (!wsOpen || !selectedCodexSessionId) return;
+  if (!force && codexReadRequestedId === selectedCodexSessionId) return;
+  codexReadRequestedId = selectedCodexSessionId;
+  setCodexStatus("正在读取选中会话…");
+  sendJson({ type: "codex.session.read", thread_id: selectedCodexSessionId });
+}
+function rememberSelectedCodexSession() {
+  if (!selectedCodexSessionId) return;
+  const session = codexSessions.find((item) => item.id === selectedCodexSessionId) || selectedCodexSessionMeta;
+  if (!session) return;
+  lastCodexSessionContext = {
+    threadId: selectedCodexSessionId,
+    name: session.name || selectedCodexSessionId,
+    project: projectName(session),
+    messages: selectedCodexMessages.slice(-6),
+  };
+}
+function exitCodexSession() {
+  rememberSelectedCodexSession();
+  selectedCodexSessionId = "";
+  selectedCodexSessionMeta = null;
+  selectedCodexMessages = [];
+  codexSpeakReplyPending = false;
+  codexStreamingReply = "";
+  localStorage.removeItem("codex.defaultSessionId");
+  renderCodexSessions();
+  renderCodexMessages([]);
+  updateCodexSendState();
+  setVoiceRoute("assistant");
+  setCodexStatus("已退出当前会话");
+}
+function selectCodexSession(threadId) {
+  setVoiceRoute("codex");
+  selectedCodexSessionId = threadId;
+  selectedCodexSessionMeta = codexSessions.find((item) => item.id === threadId) || null;
+  selectedCodexMessages = [];
+  lastCodexSessionContext = null;
+  codexSpeakReplyPending = false;
+  codexStreamingReply = "";
+  codexReadRequestedId = "";
+  localStorage.setItem("codex.defaultSessionId", threadId);
+  renderCodexSessions();
+  renderCodexMessages([]);
+  updateCodexSendState();
+  sendCodexContext();
+  requestCodexSession(true);
+}
+
+/* ---------- 最近 2 条对话（主 tab） ---------- */
+const recentMsgs = []; // [{role, text, err?}]
+function renderRecent() {
+  const el = $("recent");
+  el.innerHTML = "";
+  recentMsgs.slice(-2).forEach((m) => {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    const b = document.createElement("div");
+    b.className = "bubble" + (m.err ? " err" : "");
+    b.textContent = m.text || "…";
+    div.append(b);
+    el.append(div);
+  });
+}
+function pushRecent(role, text) {
+  recentMsgs.push({ role, text });
+  if (recentMsgs.length > 2) recentMsgs.shift();
+  renderRecent();
+}
+function updateLastAi(text, err) {
+  if (recentMsgs.length && recentMsgs[recentMsgs.length - 1].role === "ai") {
+    recentMsgs[recentMsgs.length - 1].text = text;
+    if (err !== undefined) recentMsgs[recentMsgs.length - 1].err = err;
+  } else {
+    recentMsgs.push({ role: "ai", text, err: !!err });
+  }
+  renderRecent();
+}
+function appendLogLine(text, role = "user") {
+  const li = document.createElement("li");
+  const tag = document.createElement("b");
+  tag.textContent = role === "ai" ? "AI" : "你";
+  tag.className = role === "ai" ? "tag-ai" : "tag-user";
+  const span = document.createElement("span");
+  span.textContent = text;
+  const btn = document.createElement("button");
+  btn.textContent = "重播";
+  btn.addEventListener("click", () => sendJson({ type: "speak", text }));
+  li.append(tag, span, btn);
+  $("log").prepend(li);
+}
+
+function onMessage(ev) {
+  if (ev.data instanceof ArrayBuffer) {
+    receiveTtsPcm(new Int16Array(ev.data));
+    return;
+  }
+  const m = JSON.parse(ev.data);
+  if (m.type === "hello") {
+    ollamaCurrentModel = m.model || "";
+    $("modelName").textContent = "模型：" + (m.model || "未知");
+    debugLine("hello 模型=" + (m.model || "未知"));
+  } else if (m.type === "ollama.models") {
+    ollamaModelChanging = false;
+    renderOllamaModels(m.models, m.current);
+    $("modelName").textContent = `模型：${m.current || "未知"} · 已安装 ${ollamaModels.length} 个`;
+    debugLine(`Ollama 模型列表 ${ollamaModels.length} 个`);
+  } else if (m.type === "ollama.model.changed") {
+    ollamaModelChanging = false;
+    ollamaCurrentModel = String(m.model || "");
+    renderOllamaModels(ollamaModels, ollamaCurrentModel);
+    $("modelName").textContent = "模型：" + (ollamaCurrentModel || "未知");
+    debugLine("Harness 模型已切换为 " + (ollamaCurrentModel || "未知"));
+  } else if (m.type === "ollama.error") {
+    ollamaModelChanging = false;
+    updateOllamaControlState();
+    if (ollamaModels.some((model) => model.name === ollamaCurrentModel)) {
+      $("ollamaModelSelect").value = ollamaCurrentModel;
+    }
+    $("modelName").textContent = "模型操作失败：" + (m.message || "未知错误");
+    debugLine("ollama.error " + (m.message || "未知错误"));
+  } else if (m.type === "codex.session.creating") {
+    codexCreating = true;
+    updateCodexSendState();
+  } else if (m.type === "codex.session.created") {
+    codexCreating = false;
+    const session = m.session;
+    if (!session || !session.id) {
+      updateCodexSendState();
+      setCodexStatus("新建失败：服务端没有返回会话 ID");
+      return;
+    }
+    newlyCreatedCodexSession = session;
+    codexSessions = [session, ...codexSessions.filter((item) => item.id !== session.id)];
+    codexProjectFilter = session.project || projectName(session);
+    selectedCodexSessionId = session.id;
+    selectedCodexSessionMeta = session;
+    selectedCodexMessages = [];
+    codexReadRequestedId = session.id;
+    codexSpeakReplyPending = false;
+    codexStreamingReply = "";
+    localStorage.setItem("codex.defaultSessionId", session.id);
+    setVoiceRoute("codex");
+    renderCodexSessions();
+    renderCodexMessages([]);
+    updateCodexSendState();
+    sendCodexContext();
+    setCodexStatus(`已在 ${projectName(session)} 新建空会话：${session.name || session.id}`);
+    debugLine("Codex 空会话已创建 " + session.id);
+  } else if (m.type === "codex.sessions") {
+    if (!m.cached) clearTimeout(codexListTimer);
+    const incomingSessions = Array.isArray(m.sessions) ? m.sessions : [];
+    const createdIsListed = newlyCreatedCodexSession
+      && incomingSessions.some((session) => session.id === newlyCreatedCodexSession.id);
+    codexSessions = newlyCreatedCodexSession && !createdIsListed
+      ? [newlyCreatedCodexSession, ...incomingSessions]
+      : incomingSessions;
+    if (createdIsListed) newlyCreatedCodexSession = null;
+    if (!m.cached && selectedCodexSessionId && !codexSessions.some((session) => session.id === selectedCodexSessionId)) {
+      selectedCodexSessionId = "";
+      selectedCodexSessionMeta = null;
+      selectedCodexMessages = [];
+      localStorage.removeItem("codex.defaultSessionId");
+    }
+    if (!selectedCodexSessionId && codexSessions.length) selectedCodexSessionId = codexSessions[0].id;
+    selectedCodexSessionMeta = codexSessions.find((session) => session.id === selectedCodexSessionId) || selectedCodexSessionMeta;
+    sendCodexContext();
+    renderCodexSessions();
+    updateCodexSendState();
+    const source = m.cached ? "（缓存）" : "";
+    setCodexStatus(codexSessions.length
+      ? `已加载 ${codexSessions.length} 个会话${source}${m.cached ? "，后台刷新中" : ""}`
+      : (m.cached ? "缓存为空，后台刷新中…" : "未找到 Codex 会话"));
+    if (selectedCodexSessionId && codexSessions.some((session) => session.id === selectedCodexSessionId)) {
+      requestCodexSession();
+    }
+  } else if (m.type === "codex.session") {
+    if (m.threadId !== selectedCodexSessionId) return;
+    const previousMessages = selectedCodexMessages;
+    selectedCodexMessages = Array.isArray(m.messages) ? m.messages : [];
+    selectedCodexSessionMeta = {
+      ...(selectedCodexSessionMeta || {}),
+      id: m.threadId,
+      name: m.name || selectedCodexSessionMeta?.name,
+      cwd: m.cwd || selectedCodexSessionMeta?.cwd,
+      project: m.project || selectedCodexSessionMeta?.project,
+    };
+    renderCodexMessages(m.messages);
+    sendCodexContext();
+    setCodexStatus(`${m.name || "已选会话"} · 最近 ${(m.messages || []).length} 条${m.cached ? "（缓存）" : ""}`);
+    if (!m.cached && codexSpeakReplyPending) {
+      const previousAssistant = new Set(previousMessages.filter((message) => message.role === "assistant").map((message) => message.text));
+      const latestAssistant = [...selectedCodexMessages].reverse().find((message) => message.role === "assistant" && message.text);
+      if (latestAssistant && !previousAssistant.has(latestAssistant.text)) requestCodexReplySummary(latestAssistant.text);
+    }
+  } else if (m.type === "codex.session.sending") {
+    if (m.thread_id !== selectedCodexSessionId) return;
+    codexSending = true;
+    updateCodexSendState();
+    setCodexStatus("正在追加到 Codex 会话…");
+  } else if (m.type === "codex.session.sent") {
+    if (m.thread_id !== selectedCodexSessionId) return;
+    codexSending = false;
+    updateCodexSendState();
+    const result = m.result || {};
+    if (result.ok) {
+      $("codexReplyText").value = "";
+      if (result.reply) requestCodexReplySummary(result.reply);
+      else codexSpeakReplyPending = true;
+      if (!result.reply) setCodexStatus(result.status === "running" ? "已提交，Codex 仍在处理" : "已追加，等待回复内容…");
+    } else {
+      codexSpeakReplyPending = false;
+      setCodexStatus("追加失败：" + (result.error || "未知错误"));
+    }
+  } else if (m.type === "codex.reply.summarizing") {
+    if (m.thread_id === selectedCodexSessionId) setCodexStatus("正在整理 Codex 回复并准备播报…");
+  } else if (m.type === "codex.reply.summary") {
+    if (m.thread_id !== selectedCodexSessionId) return;
+    speakCodexReply(m.text);
+    setCodexStatus("Codex 回复已整理并播报");
+  } else if (m.type === "codex.error") {
+    if (m.action === "list") clearTimeout(codexListTimer);
+    if (m.action === "create") codexCreating = false;
+    if (m.action !== "list" || !m.background) {
+      codexSending = false;
+      updateCodexSendState();
+    }
+    const prefix = m.background ? "缓存已显示，后台刷新失败：" : "Codex 操作失败：";
+    setCodexStatus(prefix + (m.message || "未知错误"));
+  } else if (m.type === "asr.partial") {
+    if (recentMsgs.length && recentMsgs[recentMsgs.length - 1].role === "user") {
+      recentMsgs[recentMsgs.length - 1].text = m.text || "";
+    } else {
+      recentMsgs.push({ role: "user", text: m.text || "" });
+    }
+    renderRecent();
+  } else if (m.type === "asr.final") {
+    const transcript = (m.text || "").trim();
+    if (!transcript) return;
+    if (recentMsgs.length && recentMsgs[recentMsgs.length - 1].role === "user") {
+      recentMsgs[recentMsgs.length - 1].text = transcript;
+    } else {
+      recentMsgs.push({ role: "user", text: transcript });
+    }
+    renderRecent();
+    appendLogLine(transcript);
+    if (!isAssistantVoice()) appendCodexDraft(transcript);
+    if (!echoMode && !isAssistantVoice() && $("autoSpeak").checked) sendJson({ type: "speak", text: transcript });
+  } else if (m.type === "tts.started") {
+    speaking = true;
+    ensureAudioCtx();
+    // 上一个 TTS 流的 PCM 可能还在播放队列中：保持排队接续，避免重置后两段音频重叠成两个声音
+    nextPlayTime = Math.max(nextPlayTime, audioCtx.currentTime + 0.05);
+    $("hint").textContent = replying ? "AI 回复中…" : "正在流式合成并播放…";
+  } else if (m.type === "tts.done") {
+    speaking = false;
+    $("hint").textContent = replying ? "AI 回复中…" : hintDefault();
+  } else if (m.type === "llm.started") {
+    replying = true;
+    pushRecent("ai", "");
+    $("hint").textContent = "正在调用本地模型…";
+    debugLine("llm.started");
+  } else if (m.type === "llm.status") {
+    $("hint").textContent = m.text || "AI 回复中…";
+    debugLine(m.text || "llm.status");
+  } else if (m.type === "llm.partial") {
+    updateLastAi(m.text || "");
+  } else if (m.type === "llm.done") {
+    replying = false;
+    if (m.text) {
+      updateLastAi(m.text);
+      appendLogLine(m.text, "ai");
+    }
+    $("hint").textContent = hintDefault();
+    debugLine("llm.done chars=" + (m.text || "").length);
+  } else if (m.type === "llm.error") {
+    replying = false;
+    updateLastAi("错误：" + m.message, true);
+    $("hint").textContent = hintDefault();
+    debugLine("llm.error " + m.message);
+  }
+}
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.35;
+    analyser.connect(audioCtx.destination);
+    if (window.__avatar) window.__avatar.setAnalyser(analyser);
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+/* ---------- 麦克风采集 ---------- */
+async function startMic() {
+  if (micStream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("此浏览器不支持 getUserMedia（需要 HTTPS 安全上下文）");
+  }
+  ensureAudioCtx();
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
+  const source = audioCtx.createMediaStreamSource(micStream);
+  processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  source.connect(processor);
+  // 用 0 增益节点保持处理链存活，避免把麦克风信号送回扬声器造成回声
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0;
+  processor.connect(gain);
+  gain.connect(audioCtx.destination);
+  processor.onaudioprocess = onAudio;
+}
+
+function onAudio(e) {
+  // 实时跟读模式下麦克风保持活跃（TTS 播放时也继续发送），否则暂停发送防回声循环
+  if (!sending || (speaking && !echoMode) || !wsOpen) return;
+  const input = e.inputBuffer.getChannelData(0);
+  const data = audioCtx.sampleRate === 16000 ? input : resampleTo16k(input, audioCtx.sampleRate);
+  const i16 = new Int16Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    const s = Math.max(-1, Math.min(1, data[i]));
+    i16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  ws.send(i16.buffer);
+}
+
+function resampleTo16k(input, fromRate) {
+  const ratio = fromRate / 16000;
+  const out = new Float32Array(Math.round(input.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const pos = i * ratio;
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const a = input[idx] || 0, b = input[idx + 1] || 0;
+    out[i] = a + (b - a) * frac;
+  }
+  return out;
+}
+
+/* ---------- TTS 流式播放（音频同时进 analyser 供 3D 口型） ---------- */
+function receiveTtsPcm(i16) {
+  ensureAudioCtx();
+  const f32 = new Float32Array(i16.length);
+  for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 0x8000;
+  const buf = audioCtx.createBuffer(1, f32.length, 44100);
+  buf.copyToChannel(f32, 0);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(analyser);
+  activeSources.push(src);
+  src.start(Math.max(nextPlayTime, audioCtx.currentTime));
+  nextPlayTime = Math.max(nextPlayTime, audioCtx.currentTime) + buf.duration;
+  src.onended = () => {
+    const i = activeSources.indexOf(src);
+    if (i >= 0) activeSources.splice(i, 1);
+  };
+}
+
+function stopSpeaking() {
+  sendJson({ type: "stop_speak" });
+  activeSources.forEach((s) => { try { s.stop(); } catch (_) {} });
+  activeSources = [];
+  speaking = false;
+  $("hint").textContent = hintDefault();
+}
+
+/* ---------- tab 切换 ---------- */
+document.querySelectorAll(".tabs button").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    const panel = $("tab-" + b.dataset.tab);
+    if (panel) panel.classList.add("active");
+    $("voiceControls").hidden = b.dataset.tab !== "chat";
+    if (b.dataset.tab === "chat" && window.__avatar) window.__avatar.resize();
+  });
+});
+
+/* ---------- 事件绑定 ---------- */
+$("stage").addEventListener("click", (e) => {
+  if (e.target.closest("#stageControls")) return;
+  setVoiceRoute("assistant");
+  debugLine("语音目标：自研 AI");
+});
+$("micBtn").addEventListener("pointerdown", async (e) => {
+  e.preventDefault();
+  // 打断：停掉本地播放并让服务端停掉进行中的朗读/AI 回复
+  stopSpeaking();
+  try {
+    await startMic();
+    sending = true;
+    $("micBtn").classList.add("holding");
+  } catch (err) {
+    alert("麦克风不可用：" + err.message);
+  }
+});
+["pointerup", "pointerleave"].forEach((evt) =>
+  $("micBtn").addEventListener(evt, () => {
+    if (!sending) return;
+    sending = false;
+    $("micBtn").classList.remove("holding");
+    sendJson({ type: "finalize" });
+  })
+);
+$("stopBtn").addEventListener("click", stopSpeaking);
+$("echoMode").addEventListener("change", (e) => {
+  echoMode = e.target.checked;
+  if (echoMode && isAssistantVoice()) setVoiceRoute("codex");
+  sendJson({ type: "echo", on: echoMode });
+  syncModeUi();
+});
+$("ttsBtn").addEventListener("click", () => {
+  const text = $("ttsText").value.trim();
+  if (!text) return;
+  sendJson(isAssistantVoice() ? { type: "chat", text } : { type: "speak", text });
+});
+$("resetBtn").addEventListener("click", () => {
+  sendJson({ type: "reset" });
+  replying = false;
+  recentMsgs.length = 0;
+  renderRecent();
+  $("hint").textContent = hintDefault();
+});
+$("ollamaModelSelect").addEventListener("change", (event) => {
+  const model = String(event.target.value || "").trim();
+  if (!wsOpen || !model || model === ollamaCurrentModel) return;
+  ollamaModelChanging = true;
+  updateOllamaControlState();
+  $("modelName").textContent = "模型：正在切换到 " + model + "…";
+  sendJson({ type: "ollama.model.set", model });
+});
+$("refreshOllamaModels").addEventListener("click", requestOllamaModels);
+$("codexProjectFilter").addEventListener("change", (event) => {
+  codexProjectFilter = event.target.value;
+  renderCodexSessions();
+  updateCodexSendState();
+  sendCodexContext();
+});
+$("createCodexSession").addEventListener("click", createEmptyCodexSession);
+$("refreshCodexSessions").addEventListener("click", requestCodexSessions);
+$("codexSendBtn").addEventListener("click", () => {
+  const text = $("codexReplyText").value.trim();
+  if (!wsOpen || !selectedCodexSessionId || !text || codexSending) return;
+  codexSpeakReplyPending = true;
+  sendJson({ type: "codex.session.send", thread_id: selectedCodexSessionId, text });
+});
+$("codexReplyText").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    $("codexSendBtn").click();
+  }
+});
+$("ttsText").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("ttsBtn").click();
+});
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && e.target === document.body) {
+    e.preventDefault();
+    $("micBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.code === "Space") {
+    $("micBtn").dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+  }
+});
+
+updateVoiceRouteUi();
+syncModeUi();
+updateCodexSendState();
+connect();
+</script>
+</body>
+</html>

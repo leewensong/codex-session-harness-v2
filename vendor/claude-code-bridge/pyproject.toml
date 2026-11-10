@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harness-agent-adaptors"
+version = "0.1.0"
+description = "Provider-neutral session adaptors and Claude Code bridge"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.10,<2"]
+sdk = ["claude-agent-sdk==0.2.139"]
+
+[project.scripts]
+agent-adaptor = "agent_adaptors.cli:main"
+agent-adaptor-mcp = "agent_adaptors.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent_adaptors*"]

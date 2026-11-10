@@ -1,0 +1,30 @@
+[Unit]
+Description=Codex Workspace V2 form access gate
+After=network.target
+Before=nginx.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/python3 /opt/codex-v2-auth/auth_server.py --listen 127.0.0.1 --port 18062 --password-file /etc/nginx/.htpasswd-codex-v2 --state-dir /var/lib/codex-v2-auth --public-origin https://copyto.me:8061
+Restart=on-failure
+RestartSec=2
+StateDirectory=codex-v2-auth
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=multi-user.target

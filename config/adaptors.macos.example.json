@@ -1,0 +1,23 @@
+{
+  "contractVersion": 1,
+  "adaptors": [
+    {
+      "id": "codex-local",
+      "type": "codex-native",
+      "enabled": true,
+      "cwd": ".."
+    },
+    {
+      "id": "claude-local",
+      "type": "claude-code",
+      "enabled": false,
+      "cwd": "..",
+      "stateDir": "../data/claude-sdk-macos",
+      "v2StateDir": "../data/claude-sdk-macos",
+      "envMode": "inherit",
+      "backend": "sdk",
+      "allowExternalSessions": false,
+      "permissionMode": "dontAsk"
+    }
+  ]
+}
