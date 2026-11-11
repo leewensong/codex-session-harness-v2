@@ -1,6 +1,6 @@
 # 仓库建立与验证基线
 
-日期：2026-11-11。仓库：`leewensong/codex-session-harness-v2`，私有，分支 `main`。
+建立日期：2026-11-11。仓库：`leewensong/codex-session-harness-v2`，分支 `main`。建立时为私有，2026-11-12 按用户要求改为公开。
 
 ## 本次收纳
 

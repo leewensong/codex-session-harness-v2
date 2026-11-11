@@ -10,7 +10,7 @@
 
 ## 1. 准备环境
 
-在可访问私有仓库的 GitHub 账号下操作。准备 Git、uv、Python 3.12、Node 22，以及能在当前终端运行的 Codex CLI；Claude Code / SDK 放到第二阶段。Python 3.12、Node 22 是此次交接的验证基线选择，不是最低支持版本承诺。
+仓库已公开，可直接克隆；推送改动仍需有写入权限的 GitHub 账号。准备 Git、uv、Python 3.12、Node 22，以及能在当前终端运行的 Codex CLI；Claude Code / SDK 放到第二阶段。Python 3.12、Node 22 是此次交接的验证基线选择，不是最低支持版本承诺。
 
 安装工具以官方说明为准：
 

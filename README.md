@@ -71,4 +71,4 @@ uv run --locked python -m app.gateway.server --fake --host 127.0.0.1 --port 8055
 - [应用目录说明](app/README.md)
 - [早期调试记录](docs/DEBUGGING.md)（历史记录，以当前源码与实测为准）
 
-当前仓库为私有开发仓库，未声明开源许可证。Mac 的实际最低系统版本、Intel 支持及安装包形式在实机验收后确定。
+当前仓库已公开，未声明开源许可证。Mac 的实际最低系统版本、Intel 支持及安装包形式在实机验收后确定。
